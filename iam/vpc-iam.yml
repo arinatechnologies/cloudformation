@@ -1,0 +1,72 @@
+AWSTemplateFormatVersion: 2010-09-09
+Description: Creates an assumable role for cross account VPC peering.
+
+Parameters:
+  Environment:
+    Description: The Environment
+    Type: String
+  Application:
+    Description: The application name
+    Type: String
+  Customer:
+    Description: The customer name
+    Type: String
+  Region:
+    Description: The Region name
+    Type: String
+    
+  VPCRoleName:
+    Description: 'FlowLogs Role.'
+    Type: String
+  PolicyName:
+    Description: 'FlowLogs Role.'
+    Type: String
+  VPCLogGroupArn:
+    Description: VPC Log Group Arn
+    Type: String
+
+Resources:          
+  VPCRole:
+    Type: 'AWS::IAM::Role'
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+        - Effect: Allow
+          Principal:
+            Service: 'vpc-flow-logs.amazonaws.com'
+          Action: 'sts:AssumeRole'
+      Path: /          
+      RoleName: !Ref 'VPCRoleName'
+      Tags:
+        -
+          Key: Application
+          Value: !Ref Application
+        -
+          Key: Environment
+          Value: !Ref Environment
+        -
+          Key: Customer
+          Value: !Ref Customer
+        -
+          Key: Region
+          Value: !Ref Region
+      Policies:
+      - PolicyName: !Ref PolicyName
+        PolicyDocument:
+          Version: '2012-10-17'
+          Statement:
+          - Effect: Allow
+            Action:
+            - 'logs:CreateLogStream'
+            - 'logs:PutLogEvents'
+            - 'logs:DescribeLogGroups'
+            - 'logs:DescribeLogStreams'
+            Resource: "arn:aws:logs:*:*:log-group:/aws/transfer/*"
+
+Outputs:
+      
+  VPCRoleARN:
+    Value: !GetAtt 
+      - VPCRole
+      - Arn

@@ -1,0 +1,470 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'container cluster on ECS, loadbalancer, security groups and cloudwatch'
+Parameters:
+
+  Environment:
+    Description: "The Environment Name that will be used to create the stack."
+    Type: String
+
+  Customer:
+    Description: "Customer Name. Ex DXC. This will be used to create the stack. Name should only be alphanumeric"
+    Type: String
+
+  VpcId:
+    Description: VPC ID
+    Type: String
+
+  CidrIp:
+    Description: Cidr Ip
+    Type: String
+
+  SubnetId1:
+    Description: Subnet ID1
+    Type: String
+
+  SubnetId2:
+    Description: Subnet ID 2
+    Type: String
+
+  SubnetId3:
+    Description: Subnet ID 3
+    Type: String
+
+  Routetable1:
+    Description: Route Table
+    Type: String
+
+  Routetable2:
+    Description: Route Table
+    Type: String
+
+    
+Resources:
+  InterfaceSecurityGroup:
+    Type: 'AWS::EC2::SecurityGroup'
+    Properties:
+      GroupDescription: 'Controls Inbound Access to the VPC Interface Endpoint from within the VPC'
+      VpcId: !Ref VpcId
+      SecurityGroupIngress:
+        - FromPort: '0'
+          ToPort: '65535'
+          IpProtocol: tcp
+          CidrIp: !Ref CidrIp
+          #  SourceSecurityGroupId: String
+      Tags:
+        - Key: Name
+          Value: !Join 
+            - '-'
+            - - !Ref Customer
+              - !Ref Environment
+              - 'endpoint-sg'
+
+  SQSEndpoint:
+    Type: 'AWS::EC2::VPCEndpoint'
+    Properties:
+      VpcEndpointType: Interface
+      ServiceName: !Join 
+        - ''
+        - - com.amazonaws.
+          - !Ref "AWS::Region"
+          - .sqs
+      VpcId: !Ref VpcId
+      PrivateDnsEnabled: true
+      SubnetIds: 
+        - !Ref SubnetId1
+        - !Ref SubnetId2
+      SecurityGroupIds:
+        - !Ref InterfaceSecurityGroup 
+
+  EC2Endpoint:
+    Type: 'AWS::EC2::VPCEndpoint'
+    Properties:
+      VpcEndpointType: Interface
+      ServiceName: !Join 
+        - ''
+        - - com.amazonaws.
+          - !Ref "AWS::Region"
+          - .ec2
+      VpcId: !Ref VpcId
+      PrivateDnsEnabled: true
+      SubnetIds: 
+        - !Ref SubnetId1
+        - !Ref SubnetId2
+      SecurityGroupIds:
+        - !Ref InterfaceSecurityGroup 
+
+  EC2MessagesEndpoint:
+    Type: 'AWS::EC2::VPCEndpoint'
+    Properties:
+      VpcEndpointType: Interface
+      ServiceName: !Join 
+        - ''
+        - - com.amazonaws.
+          - !Ref "AWS::Region"
+          - .ec2messages
+      VpcId: !Ref VpcId
+      PrivateDnsEnabled: true
+      SubnetIds: 
+        - !Ref SubnetId1
+        - !Ref SubnetId2
+      SecurityGroupIds:
+        - !Ref InterfaceSecurityGroup 
+
+  S3GatewayEndpoint:
+    Type: 'AWS::EC2::VPCEndpoint'
+    Properties:
+      RouteTableIds:
+        - !Ref Routetable1
+        - !Ref Routetable2
+      ServiceName: !Sub 'com.amazonaws.${AWS::Region}.s3'
+      VpcId: !Ref VpcId
+
+  ECSTelemetryEndpoint:
+    Type: 'AWS::EC2::VPCEndpoint'
+    Properties:
+      VpcEndpointType: Interface
+      ServiceName: !Join 
+        - ''
+        - - com.amazonaws.
+          - !Ref "AWS::Region"
+          - .ecs-telemetry
+      VpcId: !Ref VpcId
+      PrivateDnsEnabled: true
+      SubnetIds: 
+        - !Ref SubnetId1
+        - !Ref SubnetId2
+        - !Ref SubnetId3
+      SecurityGroupIds:
+        - !Ref InterfaceSecurityGroup 
+
+  ECRAPIEndpoint:
+    Type: 'AWS::EC2::VPCEndpoint'
+    Properties:
+      VpcEndpointType: Interface
+      ServiceName: !Join 
+        - ''
+        - - com.amazonaws.
+          - !Ref "AWS::Region"
+          - .ecr.api
+      VpcId: !Ref VpcId
+      PrivateDnsEnabled: true
+      SubnetIds: 
+        - !Ref SubnetId1
+        - !Ref SubnetId2
+        - !Ref SubnetId3
+      SecurityGroupIds:
+        - !Ref InterfaceSecurityGroup 
+
+  ECRDKREndpoint:
+    Type: 'AWS::EC2::VPCEndpoint'
+    Properties:
+      VpcEndpointType: Interface
+      ServiceName: !Join 
+        - ''
+        - - com.amazonaws.
+          - !Ref "AWS::Region"
+          - .ecr.dkr
+      VpcId: !Ref VpcId
+      PrivateDnsEnabled: true
+      SubnetIds: 
+        - !Ref SubnetId1
+        - !Ref SubnetId2
+        - !Ref SubnetId3
+      SecurityGroupIds:
+        - !Ref InterfaceSecurityGroup 
+
+  SecretsManagerEndpoint:
+    Type: 'AWS::EC2::VPCEndpoint'
+    Properties:
+      VpcEndpointType: Interface
+      ServiceName: !Join 
+        - ''
+        - - com.amazonaws.
+          - !Ref "AWS::Region"
+          - .secretsmanager
+      VpcId: !Ref VpcId
+      PrivateDnsEnabled: true
+      SubnetIds: 
+        - !Ref SubnetId1
+        - !Ref SubnetId2
+        - !Ref SubnetId3
+      SecurityGroupIds:
+        - !Ref InterfaceSecurityGroup 
+
+  KMSEndpoint:
+    Type: 'AWS::EC2::VPCEndpoint'
+    Properties:
+      VpcEndpointType: Interface
+      ServiceName: !Join 
+        - ''
+        - - com.amazonaws.
+          - !Ref "AWS::Region"
+          - .kms
+      VpcId: !Ref VpcId
+      PrivateDnsEnabled: true
+      SubnetIds: 
+        - !Ref SubnetId1
+        - !Ref SubnetId2
+        - !Ref SubnetId3
+      SecurityGroupIds:
+        - !Ref InterfaceSecurityGroup 
+
+  SNSEndpoint:
+    Type: 'AWS::EC2::VPCEndpoint'
+    Properties:
+      VpcEndpointType: Interface
+      ServiceName: !Join 
+        - ''
+        - - com.amazonaws.
+          - !Ref "AWS::Region"
+          - .sns
+      VpcId: !Ref VpcId
+      PrivateDnsEnabled: true
+      SubnetIds: 
+        - !Ref SubnetId1
+        - !Ref SubnetId2
+        - !Ref SubnetId3
+      SecurityGroupIds:
+        - !Ref InterfaceSecurityGroup 
+
+  ECSAgentEndpoint:
+    Type: 'AWS::EC2::VPCEndpoint'
+    Properties:
+      VpcEndpointType: Interface
+      ServiceName: !Join 
+        - ''
+        - - com.amazonaws.
+          - !Ref "AWS::Region"
+          - .ecs-agent
+      VpcId: !Ref VpcId
+      PrivateDnsEnabled: true
+      SubnetIds: 
+        - !Ref SubnetId1
+        - !Ref SubnetId2
+        - !Ref SubnetId3
+      SecurityGroupIds:
+        - !Ref InterfaceSecurityGroup 
+
+  ECSEndpoint:
+    Type: 'AWS::EC2::VPCEndpoint'
+    Properties:
+      VpcEndpointType: Interface
+      ServiceName: !Join 
+        - ''
+        - - com.amazonaws.
+          - !Ref "AWS::Region"
+          - .ecs
+      VpcId: !Ref VpcId
+      PrivateDnsEnabled: true
+      SubnetIds: 
+        - !Ref SubnetId1
+        - !Ref SubnetId2
+        - !Ref SubnetId3
+      SecurityGroupIds:
+        - !Ref InterfaceSecurityGroup 
+
+  # CodeartifactApiEndpoint:
+  #   Type: 'AWS::EC2::VPCEndpoint'
+  #   Properties:
+  #     VpcEndpointType: Interface
+  #     ServiceName: !Join 
+  #       - ''
+  #       - - com.amazonaws.
+  #         - !Ref "AWS::Region"
+  #         - .codeartifact.api
+  #     VpcId: !Ref VpcId
+  #     PrivateDnsEnabled: true
+  #     SubnetIds: 
+  #       - !Ref SubnetId1
+  #       - !Ref SubnetId2
+  #       - !Ref SubnetId3
+  #     SecurityGroupIds:
+  #       - !Ref InterfaceSecurityGroup 
+
+  # CodebuildApiEndpoint:
+  #   Type: 'AWS::EC2::VPCEndpoint'
+  #   Properties:
+  #     VpcEndpointType: Interface
+  #     ServiceName: !Join 
+  #       - ''
+  #       - - com.amazonaws.
+  #         - !Ref "AWS::Region"
+  #         - .codebuild
+  #     VpcId: !Ref VpcId
+  #     PrivateDnsEnabled: true
+  #     SubnetIds: 
+  #       - !Ref SubnetId1
+  #       - !Ref SubnetId2
+  #       - !Ref SubnetId3
+  #     SecurityGroupIds:
+  #       - !Ref InterfaceSecurityGroup 
+
+  # CodedeployApiEndpoint:
+  #   Type: 'AWS::EC2::VPCEndpoint'
+  #   Properties:
+  #     VpcEndpointType: Interface
+  #     ServiceName: !Join 
+  #       - ''
+  #       - - com.amazonaws.
+  #         - !Ref "AWS::Region"
+  #         - .codedeploy
+  #     VpcId: !Ref VpcId
+  #     PrivateDnsEnabled: true
+  #     SubnetIds: 
+  #       - !Ref SubnetId1
+  #       - !Ref SubnetId2
+  #       - !Ref SubnetId3
+  #     SecurityGroupIds:
+  #       - !Ref InterfaceSecurityGroup 
+
+  # CodepipelineApiEndpoint:
+  #   Type: 'AWS::EC2::VPCEndpoint'
+  #   Properties:
+  #     VpcEndpointType: Interface
+  #     ServiceName: !Join 
+  #       - ''
+  #       - - com.amazonaws.
+  #         - !Ref "AWS::Region"
+  #         - .codepipeline
+  #     VpcId: !Ref VpcId
+  #     PrivateDnsEnabled: true
+  #     SubnetIds: 
+  #       - !Ref SubnetId1
+  #       - !Ref SubnetId2
+  #       - !Ref SubnetId3
+  #     SecurityGroupIds:
+  #       - !Ref InterfaceSecurityGroup 
+
+  SSMApiEndpoint:
+    Type: 'AWS::EC2::VPCEndpoint'
+    Properties:
+      VpcEndpointType: Interface
+      ServiceName: !Join 
+        - ''
+        - - com.amazonaws.
+          - !Ref "AWS::Region"
+          - .ssm
+      VpcId: !Ref VpcId
+      PrivateDnsEnabled: true
+      SubnetIds: 
+        - !Ref SubnetId1
+        - !Ref SubnetId2
+        - !Ref SubnetId3
+      SecurityGroupIds:
+        - !Ref InterfaceSecurityGroup 
+
+  # TextractEndpoint:
+  #   Type: 'AWS::EC2::VPCEndpoint'
+  #   Properties:
+  #     VpcEndpointType: Interface
+  #     ServiceName: !Join 
+  #       - ''
+  #       - - com.amazonaws.
+  #         - !Ref "AWS::Region"
+  #         - .textract
+  #     VpcId: !Ref VpcId
+  #     PrivateDnsEnabled: true
+  #     SubnetIds: 
+  #       - !Ref SubnetId1
+  #       - !Ref SubnetId2
+  #       - !Ref SubnetId3
+  #     SecurityGroupIds:
+  #       - !Ref InterfaceSecurityGroup 
+
+  # SyntheticsEndpoint:
+  #   Type: 'AWS::EC2::VPCEndpoint'
+  #   Properties:
+  #     VpcEndpointType: Interface
+  #     ServiceName: !Join 
+  #       - ''
+  #       - - com.amazonaws.
+  #         - !Ref "AWS::Region"
+  #         - .synthetics
+  #     VpcId: !Ref VpcId
+  #     PrivateDnsEnabled: true
+  #     SubnetIds: 
+  #       - !Ref SubnetId1
+  #       - !Ref SubnetId2
+  #       - !Ref SubnetId3
+  #     SecurityGroupIds:
+  #       - !Ref InterfaceSecurityGroup 
+
+  # EventsEndpoint:
+  #   Type: 'AWS::EC2::VPCEndpoint'
+  #   Properties:
+  #     VpcEndpointType: Interface
+  #     ServiceName: !Join 
+  #       - ''
+  #       - - com.amazonaws.
+  #         - !Ref "AWS::Region"
+  #         - .events
+  #     VpcId: !Ref VpcId
+  #     PrivateDnsEnabled: true
+  #     SubnetIds: 
+  #       - !Ref SubnetId1
+  #       - !Ref SubnetId2
+  #       - !Ref SubnetId3
+  #     SecurityGroupIds:
+  #       - !Ref InterfaceSecurityGroup 
+
+Outputs:
+  InterfaceSecurityGroup:
+    Description: Interface Security Group
+    Value: !Ref InterfaceSecurityGroup
+
+  SQSEndpoint:
+    Description: SQS Endpoint
+    Value: !Ref SQSEndpoint
+  SQSEndpointCreationTimestamp:
+    Description: SQS Endpoint Creation Timestamp
+    Value: !GetAtt SQSEndpoint.CreationTimestamp
+
+  S3GatewayEndpoint:
+    Description: S3 Gateway Endpoint
+    Value: !Ref S3GatewayEndpoint
+
+  ECSTelemetryEndpoint:
+    Description: ECS Telemetry Endpoint
+    Value: !Ref ECSTelemetryEndpoint
+  ECRAPIEndpoint:
+    Description: ECR API Endpoint
+    Value: !Ref ECRAPIEndpoint
+  ECRDKREndpoint:
+    Description: ECR DKR Endpoint
+    Value: !Ref ECRDKREndpoint
+  SecretsManagerEndpoint:
+    Description: Secrets Manager Endpoint
+    Value: !Ref SecretsManagerEndpoint
+  KMSEndpoint:
+    Description: KMS Endpoint
+    Value: !Ref KMSEndpoint
+  SNSEndpoint:
+    Description: SNS Endpoint
+    Value: !Ref SNSEndpoint
+  ECSAgentEndpoint:
+    Description: ECS Agent Endpoint
+    Value: !Ref ECSAgentEndpoint
+  ECSEndpoint:
+    Description: ECS Endpoint
+    Value: !Ref ECSEndpoint
+  EC2Endpoint:
+    Description: EC2 Endpoint
+    Value: !Ref EC2Endpoint
+  EC2MessagesEndpoint:
+    Description: EC2 Messages Endpoint
+    Value: !Ref EC2MessagesEndpoint
+  # CodedeployApiEndpoint:
+  #   Description: Code deploy Endpoint
+  #   Value: !Ref CodedeployApiEndpoint
+  # CodepipelineApiEndpoint:
+  #   Description: Code pipeline Endpoint
+  #   Value: !Ref CodepipelineApiEndpoint
+  SSMApiEndpoint:
+    Description: SSM Endpoint
+    Value: !Ref SSMApiEndpoint
+  # TextractEndpoint:
+  #   Description: Textract Endpoint
+  #   Value: !Ref TextractEndpoint
+  # EventsEndpoint:
+  #   Description: Events Endpoint
+  #   Value: !Ref EventsEndpoint

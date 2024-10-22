@@ -1,0 +1,67 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'Template to create LogGroup'
+Parameters:  
+
+  Environment:
+    Description: "The Environment Name that will be used to create the stack."
+    Type: String
+
+  Customer:
+    Description: "Customer Name. Ex DXC. This will be used to create the stack. Name should only be alphanumeric"
+    Type: String
+
+  Application:
+    Description: Application Name. Intended for DB and other use
+    Type: String
+
+  Region:
+    Description: Region Name. 
+    Type: String
+
+  LogGroupName:
+    Description: The Log Group name
+    Type: String
+
+  KmsKeyId:
+    Description: Kms Key Id
+    Type: String
+  
+  LogGroupClass:
+    Description: Log Group Class
+    Type: String
+
+  RetentionInDays:
+    Description: 'Specifies the number of days you want to retain log events.'
+    Type: Number
+    AllowedValues: [1, 3, 5, 7, 14, 30, 60, 90, 120, 150, 180, 365, 400, 545, 731, 1827, 3653]
+    
+Resources:
+            
+  VPCLogGroup:
+    Type: 'AWS::Logs::LogGroup'
+    Properties:
+      RetentionInDays: !Ref RetentionInDays
+      LogGroupName: !Ref LogGroupName
+      KmsKeyId: !Ref KmsKeyId
+      LogGroupClass: !Ref LogGroupClass
+      Tags:
+        -
+          Key: Application
+          Value: !Ref Application
+        -
+          Key: Environment
+          Value: !Ref Environment
+        -
+          Key: Customer
+          Value: !Ref Customer
+        -
+          Key: Region
+          Value: !Ref Region
+
+Outputs:   
+  VPCLogGroup:
+    Description: VPC CloudWatch log group
+    Value: !Ref VPCLogGroup
+  VPCLogGroupArn:
+    Description: VPC CloudWatch log group
+    Value: !GetAtt VPCLogGroup.Arn

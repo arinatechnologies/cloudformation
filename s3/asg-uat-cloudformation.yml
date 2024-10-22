@@ -1,0 +1,180 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'Template to create asg-uat-cloudformation'
+
+Parameters:
+  S3BucketName:
+    Type: String
+    Description: The Bucket Name
+    Default: asg-uat-uk-cloudformation
+  Environment:
+    Description: The Environment
+    Type: String
+    Default: uat
+  Application:
+    Description: The application name
+    Type: String
+    Default: asg
+  Customer:
+    Description: The customer name
+    Type: String
+    Default: asg
+  Region:
+    Description: The region name
+    Type: String
+    Default: uk
+
+  # KmsKeyId:
+  #   Description: Kms Key Id 
+  #   Type: String
+
+Resources:
+  
+  S3Bucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      AccessControl: Private
+      BucketName: !Ref S3BucketName
+      VersioningConfiguration:
+        Status: Suspended
+      # BucketEncryption:
+      #   ServerSideEncryptionConfiguration:
+      #     - ServerSideEncryptionByDefault:
+      #         SSEAlgorithm: 'aws:kms'
+      #         KMSMasterKeyID: !Ref KmsKeyId
+      # LifecycleConfiguration:
+      #   Rules:
+      #     - Id: "delete-after-30day"
+      #       AbortIncompleteMultipartUpload:
+      #         DaysAfterInitiation: 1
+      #       NoncurrentVersionExpirationInDays: 1
+      #       Status: "Enabled"
+      #       ExpirationInDays: '1' # Complete Disposal/Deletion of Data after 1 year
+
+      Tags:
+        -
+          Key: Application
+          Value: !Ref Application
+        -
+          Key: Environment
+          Value: !Ref Environment
+        -
+          Key: Customer
+          Value: !Ref Customer
+        -
+          Key: Region
+          Value: !Ref Region
+        -
+          Key: S3BucketReplicationRequired
+          Value: false
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true      
+
+  BucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket: !Ref S3Bucket    
+      PolicyDocument:
+        Id: asg-s3-policy
+        Version: 2012-10-17
+        Statement:
+          - Sid: AWSCloudTrailGet
+            Effect: Allow
+            Principal:
+              Service: cloudtrail.amazonaws.com
+            Action: 's3:GetBucketAcl'
+            Resource: !Join
+              - ''
+              - - "arn:aws:s3:::"
+                - !Ref S3BucketName 
+          - Sid: AWSCloudTrailPut
+            Effect: Allow
+            Principal:
+              Service: cloudtrail.amazonaws.com
+            Action: 's3:PutObject'
+            Resource: !Join
+              - ''
+              - - "arn:aws:s3:::"
+                - !Ref S3BucketName 
+                - "/AWSLogs/396608778513/*"
+            Condition:
+              StringEquals:
+                's3:x-amz-acl': bucket-owner-full-control
+          - Sid: DenyPublicReadACL
+            Effect: Deny
+            Principal:
+              AWS: '*'
+            Action:
+              - 's3:PutObject'
+              - 's3:PutObjectAcl'
+            Resource: !Join
+              - ''
+              - - "arn:aws:s3:::"
+                - !Ref S3BucketName 
+                - "/*" 
+            Condition:
+              StringEquals:
+                's3:x-amz-acl':
+                  - public-read
+                  - public-read-write
+                  - authenticated-read
+          - Sid: DenyPublicReadGrant
+            Effect: Deny
+            Principal:
+              AWS: '*'
+            Action:
+              - 's3:PutObject'
+              - 's3:PutObjectAcl'
+            Resource: !Join
+              - ''
+              - - "arn:aws:s3:::"
+                - !Ref S3BucketName 
+                - "/*" 
+            Condition:
+              StringLike:
+                's3:x-amz-grant-read':
+                  - '*http://acs.amazonaws.com/groups/global/AllUsers*'
+                  - '*http://acs.amazonaws.com/groups/global/AuthenticatedUsers*'
+          - Sid: DenyPublicListACL
+            Effect: Deny
+            Principal:
+              AWS: '*'
+            Action: 's3:PutBucketAcl'
+            Resource: !Join
+              - ''
+              - - "arn:aws:s3:::"
+                - !Ref S3BucketName 
+                
+            Condition:
+              StringEquals:
+                's3:x-amz-acl':
+                  - public-read
+                  - public-read-write
+                  - authenticated-read
+          - Sid: DenyPublicListGrant
+            Effect: Deny
+            Principal:
+              AWS: '*'
+            Action: 's3:PutBucketAcl'
+            Resource: !Join
+              - ''
+              - - "arn:aws:s3:::"
+                - !Ref S3BucketName 
+            Condition:
+              StringLike:
+                's3:x-amz-grant-read':
+                  - '*http://acs.amazonaws.com/groups/global/AllUsers*'
+                  - '*http://acs.amazonaws.com/groups/global/AuthenticatedUsers*'
+
+Outputs:
+  S3BucketArn:
+    Description: S3Bucket Arn
+    Value: 
+      !GetAtt S3Bucket.Arn
+
+  S3BucketDomainName:
+    Description: S3Bucket DomainName
+    Value: 
+      !GetAtt S3Bucket.DomainName

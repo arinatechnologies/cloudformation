@@ -1,0 +1,260 @@
+Description: >
+
+  This will call other CloudFormation files.
+
+  
+Parameters:
+  Environment:
+    Description: "The Environment Name that will be used to create the stack."
+    Type: String
+    Default: dev
+
+  Customer:
+    Type: String
+    Default: youtube 
+    MinLength: '2'
+    MaxLength: '8'
+    ConstraintDescription: Must be a AlphaNumeric.
+
+  Application:
+    Description: Application Name. Intended for DB and other use
+    Type: String
+    Default: demo    
+    MinLength: '2'
+    MaxLength: '10'
+    ConstraintDescription: Must be a AlphaNumeric.
+
+  Region:
+    Description: Region where the stack will be setup.
+    Type: String
+    Default: us    
+    MinLength: '2'
+    MaxLength: '10'
+    AllowedValues: [in, us]
+    
+  VPCCIDR: 
+    Description: The CIDR Block of VPC to be created that is provided by Infrastructure team. Enter the 1st 2 digits for the IP.
+    Type: String
+    Default: "10.110"
+      
+Resources:
+
+  KMS:
+    Type: AWS::CloudFormation::Stack
+    Properties:
+      TemplateURL: https://arina-yt-cloudformation.s3.us-west-2.amazonaws.com/kms/vpc-kms.yml
+      Parameters:
+        Environment: !Ref Environment
+        Customer: !Ref Customer
+        Application: !Ref Application
+        Region: !Ref Region
+        KeyName: !Join
+          - ''
+          - - !Ref "Environment" 
+            - "-vpc-key"
+        PendingWindowInDays: 7
+        AliasName: !Join
+          - ''
+          - - 'alias/'
+            - !Ref "Environment" 
+            - "-vpc-key"
+
+
+  VPCLogGroup:
+    Type: AWS::CloudFormation::Stack
+    Properties:
+      TemplateURL: https://arina-yt-cloudformation.s3.us-west-2.amazonaws.com/loggroup/vpc-loggroup.yml
+      Parameters:
+        Environment: !Ref Environment
+        Customer: !Ref Customer
+        Application: !Ref Application
+        Region: !Ref Region
+        LogGroupName: "arina-common-vpc-loggroup" 
+        KmsKeyId: !GetAtt KMS.Outputs.KeyArn
+        LogGroupClass: STANDARD
+        RetentionInDays: 30
+
+  VPCIAM:
+    Type: AWS::CloudFormation::Stack
+    Properties:
+      TemplateURL: https://arina-yt-cloudformation.s3.us-west-2.amazonaws.com/iam/vpc-iam.yml
+      Parameters:
+        Environment: !Ref Environment
+        Application: !Ref Application
+        Customer: !Ref Customer
+        Region: !Ref Region
+        
+        VPCLogGroupArn: !GetAtt VPCLogGroup.Outputs.VPCLogGroupArn
+        VPCRoleName: "arina-common-vpc-role" 
+        PolicyName: "arina-common-vpc-policy" 
+  VPC:
+    Type: AWS::CloudFormation::Stack
+    Properties:
+      TemplateURL: https://arina-yt-cloudformation.s3.us-west-2.amazonaws.com/vpc/vpc.yml
+      Parameters:
+        Environment: !Ref Environment
+        Application: !Ref Application
+        Customer: !Ref Customer
+        VPCName: arina-common
+        VPCCIDR: !Join
+          - ''
+          - - !Ref VPCCIDR
+            - '.0.0/22'
+        VPCPublic1CIDR: !Join
+          - ''
+          - - !Ref VPCCIDR
+            - '.0.0/26'
+        VPCPublic2CIDR: !Join
+          - ''
+          - - !Ref VPCCIDR
+            - '.0.64/26'
+        VPCApp1CIDR: !Join
+          - ''
+          - - !Ref VPCCIDR
+            - '.1.0/24'
+        VPCApp2CIDR: !Join
+          - ''
+          - - !Ref VPCCIDR
+            - '.2.0/24'
+        VPCApp3CIDR: !Join
+          - ''
+          - - !Ref VPCCIDR
+            - '.3.0/24'
+        VPCDS1CIDR: !Join
+          - ''
+          - - !Ref VPCCIDR
+            - '.0.128/27'
+        VPCDS2CIDR: !Join
+          - ''
+          - - !Ref VPCCIDR
+            - '.0.160/27'
+
+  FlowLogs:
+    Type: AWS::CloudFormation::Stack
+    Properties:
+      TemplateURL: https://arina-yt-cloudformation.s3.us-west-2.amazonaws.com/vpc/flowlogs.yml
+      Parameters:
+        VPCId: !GetAtt VPC.Outputs.VPCId
+        Environment: !Ref Environment
+        Customer: !Ref Customer
+        Application: !Ref Application
+        Region: !Ref Region
+
+        VPCRoleARN: !GetAtt VPCIAM.Outputs.VPCRoleARN
+        LogGroupName: "arina-common-vpc-loggroup"
+
+  VPCEndpoints:
+    Type: AWS::CloudFormation::Stack
+    Properties:
+      TemplateURL: https://arina-yt-cloudformation.s3.us-west-2.amazonaws.com/vpc/vpce.yml
+      Parameters:
+        Environment: !Ref Environment
+        Customer: !Ref Customer
+        
+        VpcId: !GetAtt VPC.Outputs.VPCId
+        CidrIp: '10.110.0.0/22'
+        SubnetId1: !GetAtt VPC.Outputs.AppPrv1
+        SubnetId2: !GetAtt VPC.Outputs.AppPrv2
+        SubnetId3: !GetAtt VPC.Outputs.AppPrv3
+        Routetable1: !GetAtt VPC.Outputs.ApplicationRouteTable1
+        Routetable2: !GetAtt VPC.Outputs.ApplicationRouteTable2
+
+Outputs:
+  # VPC Output
+  VPCId:
+    Description: VPCId
+    Value: !GetAtt VPC.Outputs.VPCId
+    Export:
+      Name: !Sub "${AWS::StackName}-${AWS::Region}-VPCId"    
+
+  VPCCIDR:
+    Description: VPC CIDR
+    Value: !Join
+          - ''
+          - - !Ref VPCCIDR
+            - '.0.0/22'
+    Export:
+      Name: !Sub "${AWS::StackName}-${AWS::Region}-VPCCIDR"
+
+  PublicSubnet1:
+    Description: "SubnetId of public subnet 1"
+    Value: !GetAtt VPC.Outputs.PublicSubnet1
+    Export:
+      Name: !Sub "${AWS::StackName}-${AWS::Region}-PubSubnet1"
+
+  CIDRPublicSubnet1:
+    Description: "CIDR of public subnet 1"
+    Value: 10.150.0.0/26
+    Export:
+      Name: !Sub "${AWS::StackName}-${AWS::Region}-CIDRPublicSubnet1"
+        
+  PublicSubnet2:
+    Description: "SubnetId of public subnet 2"
+    Value: !GetAtt VPC.Outputs.PublicSubnet2
+    Export:
+      Name: !Sub "${AWS::StackName}-${AWS::Region}-PubSubnet2"
+
+  CIDRPublicSubnet2:
+    Description: "CIDR of public subnet 1"
+    Value: 10.150.0.64/26		
+    Export:
+      Name: !Sub "${AWS::StackName}-${AWS::Region}-CIDRPublicSubnet2"
+
+  AppPrv1:
+    Description: "SubnetId of private subnet 1"
+    Value: !GetAtt VPC.Outputs.AppPrv1
+    Export:
+      Name: !Sub "${AWS::StackName}-${AWS::Region}-AppPrv1"
+
+  CIDRAppSubnet1:
+    Description: "CIDR of public subnet 1"
+    Value: 10.150.1.0/24	
+    Export:
+      Name: !Sub "${AWS::StackName}-${AWS::Region}-CIDRAppSubnet1"
+  AppPrv2:
+    Description: "SubnetId of private subnet 2"
+    Value: !GetAtt VPC.Outputs.AppPrv2
+    Export:
+      Name: !Sub "${AWS::StackName}-${AWS::Region}-AppPrv2"
+
+  CIDRAppSubnet2:
+    Description: "CIDR of public subnet 1"
+    Value: 10.150.2.0/24	
+    Export:
+      Name: !Sub "${AWS::StackName}-${AWS::Region}-CIDRAppSubnet2"
+  AppPrv3:
+    Description: "SubnetId of private subnet 2"
+    Value: !GetAtt VPC.Outputs.AppPrv3
+    Export:
+      Name: !Sub "${AWS::StackName}-${AWS::Region}-AppPrv3"
+
+  CIDRAppSubnet3:
+    Description: "CIDR of public subnet 1"
+    Value: 10.150.3.0/24	
+    Export:
+      Name: !Sub "${AWS::StackName}-${AWS::Region}-CIDRAppSubnet3"
+      
+  # DB Details
+  DSPrv1:
+    Description: "SubnetId of private subnet 1"
+    Value: !GetAtt VPC.Outputs.DSPrv1
+    Export:
+      Name: !Sub "${AWS::StackName}-${AWS::Region}-DSPrv1"
+
+  CIDRDSPrvSubnet1:
+    Description: "CIDR of public subnet 1"
+    Value: 10.150.0.128/27	
+    Export:
+      Name: !Sub "${AWS::StackName}-${AWS::Region}-CIDRDSPrvSubnet1"
+
+  DSPrv2:
+    Description: "SubnetId of private subnet 2"
+    Value: !GetAtt VPC.Outputs.DSPrv2
+    Export:
+      Name: !Sub "${AWS::StackName}-${AWS::Region}-DSPrv2"
+
+  CIDRDSPrvSubnet2:
+    Description: "CIDR of public subnet 1"
+    Value: 10.150.0.160/27	
+    Export:
+      Name: !Sub "${AWS::StackName}-${AWS::Region}-CIDRDSPrvSubnet2"

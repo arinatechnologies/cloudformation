@@ -1,0 +1,103 @@
+AWSTemplateFormatVersion: 2010-09-09
+Description: Creates Role For AMQ Instances
+
+Parameters:
+  RoleName:
+    Type: String   
+  PolicyName:
+    Type: String   
+  Environment:
+    Description: The Environment
+    Type: String
+  Application:
+    Description: The application name
+    Type: String
+  Customer:
+    Description: The customer name
+    Type: String
+  Region:
+    Description: The Region name
+    Type: String
+  CMKArn:
+    Description: CMK Arn
+    Type: String
+
+Resources:          
+
+  PipelineRole:
+    Type: 'AWS::IAM::Role'
+    Properties:
+      AssumeRolePolicyDocument:
+        Statement:
+          - Principal:
+              AWS:
+              - arn:aws:iam::735360830536:root
+            Action:
+              - 'sts:AssumeRole'
+            Effect: Allow
+      Path: /
+      RoleName: !Ref 'RoleName'
+      Tags:
+        -
+          Key: Application
+          Value: !Ref Application
+        -
+          Key: Environment
+          Value: !Ref Environment
+        -
+          Key: Customer
+          Value: !Ref Customer
+        -
+          Key: Region
+          Value: !Ref Region
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/AmazonECS_FullAccess
+        - arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy
+        - arn:aws:iam::aws:policy/AWSCodeDeployRoleForECS
+      Policies:
+      - PolicyName: !Ref 'RoleName'
+        PolicyDocument:
+          Version: '2012-10-17'
+          Statement:
+            - 
+              Effect: Allow
+              Action: 
+                - s3:Get*"            
+              Resource: 
+                - "arn:aws:codepipeline:us-east-1:735360830536:*"
+            - 
+              Effect: Allow
+              Action: 
+                - s3:List*         
+              Resource: 
+                - arn:aws:s3:::codepipeline-eu-west-2-396608778513
+            - 
+              Effect: Allow
+              Action: 
+                - s3:DeleteObjectVersion
+                - s3:*Object
+                - s3:CreateJob
+                - s3:Put*
+                - s3:Get*"            
+              Resource: 
+                - arn:aws:s3:::codepipeline-eu-west-2-396608778513/*
+            - 
+              Effect: Allow
+              Action: 
+                - kms:DescribeKey
+                - kms:GenerateDataKey
+                - kms:Decrypt
+                - kms:CreateGrant
+                - kms:ReEncrypt*
+                - kms:Encrypt
+              Resource: 
+                - arn:aws:kms:eu-west-2:735360830536:key/mrk-78ef81d9558b4d1ebaf9b17ad52fda3b
+                - !Ref CMKArn
+
+Outputs:
+      
+  RoleNameARN:
+    Value: !GetAtt 
+      - PipelineRole
+      - Arn
+      

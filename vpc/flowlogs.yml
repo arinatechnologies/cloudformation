@@ -1,0 +1,67 @@
+---
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'VPC: Publish flow logs to CloudWatch Logs'
+
+Parameters:
+  VPCId:
+    Description: 'Stack name of parent VPC stack.'
+    Type: String
+    # Default: vpc-06b5502fff18ddb4a
+
+  Environment:
+    Description: The Environment
+    Type: String
+  Application:
+    Description: The application name
+    Type: String
+  Customer:
+    Description: The customer name
+    Type: String
+  Region:
+    Description: The Region name
+    Type: String
+
+  VPCRoleARN:
+    Description: VPC Role ARN
+    Type: String
+
+  LogGroupName:
+    Description: Log Group Name
+    Type: String
+
+  TrafficType:
+    Description: 'The type of traffic to log.'
+    Type: String
+    Default: ALL
+    AllowedValues:
+    - ACCEPT
+    - REJECT
+    - ALL
+Resources:
+      
+  FlowLog:
+    Type: 'AWS::EC2::FlowLog'
+    Properties:
+      DeliverLogsPermissionArn: !Ref VPCRoleARN
+      LogGroupName: !Ref LogGroupName
+      ResourceId: !Ref VPCId
+      ResourceType: 'VPC'
+      TrafficType: !Ref TrafficType
+      Tags:
+        -
+          Key: Application
+          Value: !Ref Application
+        -
+          Key: Environment
+          Value: !Ref Environment
+        -
+          Key: Customer
+          Value: !Ref Customer
+        -
+          Key: Region
+          Value: !Ref Region
+      
+Outputs:
+  FlowLog:
+    Description: Flow Log
+    Value: !Ref FlowLog

@@ -1,0 +1,136 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'Template to create KMS'
+Parameters:
+  
+  Environment:
+    Description: "The Environment Name that will be used to create the stack."
+    Type: String
+
+  Customer:
+    Description: "Customer Name. Ex DXC. This will be used to create the stack. Name should only be alphanumeric"
+    Type: String
+
+  Application:
+    Description: Application Name. Intended for DB and other use
+    Type: String
+
+  Region:
+    Description: Region Name. 
+    Type: String
+    
+  KeyName:
+    Description: KMS Name. 
+    Type: String
+    
+  AliasName:
+    Description: Alias Name. 
+    Type: String
+
+  # RoleARN:
+  #   Description: Alias Name. 
+  #   Type: String
+
+  PendingWindowInDays:
+    Description: 'Specifies the number of days you want to retain the key.'
+    Type: Number
+    AllowedValues: [7, 14, 30]
+
+  AsgDevPipelineRole:
+    Description: Asg Dev Pipeline Role
+    Type: String
+
+  InfraStackNameIdentifier:
+    Description: Asg Dev Pipeline Role
+    Type: String
+    Default: Infra
+
+Resources:
+
+  Key:
+    Type: AWS::KMS::Key
+    Properties: 
+      Description: 'DSPA BETA Key'
+      Enabled: true
+      PendingWindowInDays: !Ref PendingWindowInDays
+      KeyPolicy: 
+        Version: '2012-10-17'
+        Statement:
+        - Sid: Enable IAM User Permissions
+          Effect: Allow
+          Principal:
+            AWS: !Sub 'arn:aws:iam::${AWS::AccountId}:root'
+          Action: 'kms:*'
+          Resource: '*'
+        - Sid: Allow use of the key
+          Effect: Allow
+          Principal:
+            Service: 
+            - !Sub 'logs.${AWS::Region}.amazonaws.com'
+          Action:
+          - 'kms:Encrypt*'
+          - 'kms:Decrypt*'
+          - 'kms:ReEncrypt*'
+          - 'kms:GenerateDataKey*'
+          - 'kms:Describe*'
+          Resource: '*'
+          Condition:
+            ArnEquals:
+              kms:EncryptionContext:aws:logs:arn:
+                - arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:*
+                
+        - Sid: Allow Asg Dev Pipeline Role use of the key
+          Effect: Allow
+          Principal:
+            AWS: !Ref AsgDevPipelineRole
+          Action:
+          - 'kms:Encrypt*'
+          - 'kms:Decrypt*'
+          - 'kms:ReEncrypt*'
+          - 'kms:GenerateDataKey*'
+          - 'kms:Describe*'
+          Resource: '*'
+
+      Tags:
+        -
+          Key: "Environment"
+          Value: !Ref Environment
+        -
+          Key: "Customer"
+          Value: !Ref Customer
+        -
+          Key: "Application"
+          Value: !Ref Application
+        -
+          Key: "Region"
+          Value: !Ref Region
+        -
+          Key: "Name"
+          Value: !Ref KeyName
+        
+  KeyAlias:
+    Type: 'AWS::KMS::Alias'
+    Properties:
+      AliasName: !Ref AliasName
+      TargetKeyId: !Ref Key
+
+            
+Outputs:
+  KeyAlias:
+    Description: Key Alias
+    Value: !Ref KeyAlias
+    
+  Key:
+    Description: Key
+    Value: !Ref Key            
+
+#  KeyArn:
+#    Description: Key Arn
+#    Value: !GetAtt 
+#      - Key
+#      - Arn
+
+  KeyArn:
+    Description: Key Arn
+    Value: !GetAtt KMS.Outputs.KeyArn
+    Export:
+      Name: !Sub '${Customer}-${Environment}-${InfraStackNameIdentifier}-${AWS::Region}-KeyArn'
